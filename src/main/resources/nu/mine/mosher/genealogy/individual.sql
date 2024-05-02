@@ -1,5 +1,5 @@
 SELECT
-    Person.ID AS pkid,
+    Person.ID AS dbpkPerson,
     LOWER(
         SUBSTR(HEX(PersonGUID), 7,2)||
         SUBSTR(HEX(PersonGUID), 5,2)||
@@ -10,11 +10,14 @@ SELECT
         SUBSTR(HEX(PersonGUID),15,2)||
         SUBSTR(HEX(PersonGUID),13,2)||'-'||
         SUBSTR(HEX(PersonGUID),17,4)||'-'||
-        SUBSTR(HEX(PersonGUID),21)) AS id,
+        SUBSTR(HEX(PersonGUID),21)) AS guidPerson,
     Refn.Text AS refn,
-    Name.Text AS name,
-    STRFTIME('%Y', Birth.Date/512) AS dateBirth,
-    STRFTIME('%Y', Death.Date/512) AS dateDeath
+    CASE Person.Sex WHEN 0 THEN 'MALE' WHEN 1 THEN 'FEMALE' ELSE 'UNKNOWN' END AS sex,
+    GedName.Text AS gedname,
+    STRFTIME('%Y', Birth.Date/512) AS yearBirth,
+    BirthPlace.Name AS placeBirth,
+    STRFTIME('%Y', Death.Date/512) AS yearDeath,
+    DeathPlace.Name AS placeDeath
 FROM
     Person LEFT OUTER JOIN
     Fact AS Refn ON (
@@ -41,11 +44,17 @@ FROM
             SELECT ID FROM FactType WHERE FactType.Name = 'Death' LIMIT 1
         )
     ) LEFT OUTER JOIN
-    Fact AS Name ON (
-        Name.LinkTableID = 5 AND
-        Name.LinkID = Person.ID AND
-        Name.Preferred > 0 AND
-        Name.FactTypeID IN (
+    Fact AS GedName ON (
+        GedName.LinkTableID = 5 AND
+        GedName.LinkID = Person.ID AND
+        GedName.Preferred > 0 AND
+        GedName.FactTypeID IN (
             SELECT ID FROM FactType WHERE FactType.Name = 'Name' LIMIT 1
         )
+    ) LEFT OUTER JOIN
+    Place AS BirthPlace ON (
+        BirthPlace.ID = Birth.PlaceID
+    ) LEFT OUTER JOIN
+    Place AS DeathPlace ON (
+        DeathPlace.ID = Death.PlaceID
     )

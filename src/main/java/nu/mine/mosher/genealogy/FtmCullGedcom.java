@@ -1,10 +1,13 @@
 package nu.mine.mosher.genealogy;
 
+import lombok.*;
 import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 import nu.mine.mosher.gnopt.Gnopt;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.sql.*;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -20,7 +23,8 @@ public final class FtmCullGedcom {
 
 
 
-    public static void main(final String... args) throws Gnopt.InvalidOption {
+    @SneakyThrows
+    public static void main(final String... args) {
         log.trace("processing command line arguments...");
         val opts = Gnopt.process(FtmCullGedcomOptions.class, args);
 
@@ -56,9 +60,19 @@ public final class FtmCullGedcom {
         System.err.flush();
     }
 
-    private static void cull(final Collection<Path> pathIns, final Path pathOut) {
+    private static void cull(final Collection<Path> pathIns, final Path pathOut) throws SQLException, IOException {
         for (val pathIn : pathIns) {
-
+            try (
+                val conn = DriverManager.getConnection("jdbc:sqlite:"+pathIn.toString());
+                val strmSql = FtmCullGedcom.class.getResourceAsStream("individual.sql");
+                val stmt = conn.prepareStatement(new String(strmSql.readAllBytes(), StandardCharsets.US_ASCII));
+                val rs = stmt.executeQuery();
+            ) {
+                while (rs.next()) {
+                    val indi = new Individual(rs);
+                    System.out.println(indi);
+                }
+            }
         }
     }
 

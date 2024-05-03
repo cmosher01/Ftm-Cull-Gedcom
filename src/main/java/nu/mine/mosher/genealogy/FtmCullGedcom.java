@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import nu.mine.mosher.collection.TreeNode;
 import nu.mine.mosher.gedcom.*;
 import nu.mine.mosher.gnopt.Gnopt;
+import org.sqlite.SQLiteConfig;
 
 import java.io.*;
 import java.nio.charset.*;
@@ -44,19 +45,25 @@ public final class FtmCullGedcom {
                     } catch (final Exception e) {
                         msg = e.toString();
                     }
-                    log.info("    %s\n", msg);
+                    log.info("    {}", msg);
                 }
             }
         } else {
             if (opts.pathIns.isEmpty()) {
                 log.warn("No input files specified. Use --help for usage information.");
             } else {
-                val pathOut = Path.of(timestamp+".ged");
-                log.info("Will cull to output file: "+pathOut);
-                log.info("Will cull from these files:");
+                val pathsInReal = new ArrayList<Path>();
                 for (val pathIn : opts.pathIns) {
+                    pathsInReal.add(pathIn.toRealPath());
+                }
+                log.info("Will cull from these files:");
+                for (val pathIn : pathsInReal) {
                     log.info("    "+pathIn);
                 }
+
+                val pathOut = Path.of(timestamp+".ged");
+                log.info("Will cull to output file: "+pathOut);
+
                 cull(opts.pathIns, pathOut);
             }
         }
@@ -70,17 +77,29 @@ public final class FtmCullGedcom {
         val rFamily = new ArrayList<Family>();
         for (val pathIn : pathIns) {
             val mapDbpkFamily = new HashMap<Integer, Family>();
-            try (val conn = DriverManager.getConnection("jdbc:sqlite:"+pathIn.toString())) {
+            try (val conn = conn(pathIn)) {
                 readIndividuals(conn, mapRefnIndividual);
                 readFamilyParents(conn, mapRefnIndividual, mapDbpkFamily, rFamily);
                 readFamilyChildren(conn, mapRefnIndividual, mapDbpkFamily);
             }
+            removeEmptyFamilies(rFamily);
         }
         deduplicateFamilies(rFamily);
         writeGedcom(mapRefnIndividual, rFamily);
     }
 
-    private static void readIndividuals(Connection conn, HashMap<String, Individual> mapRefnIndividual) throws SQLException, IOException {
+    private static void removeEmptyFamilies(final List<Family> rFamily) {
+        val rEmpty = rFamily.stream().filter(Family::isEmpty).toList();
+        rFamily.removeAll(rEmpty);
+    }
+
+    private static Connection conn(final Path path) throws SQLException {
+        val config = new SQLiteConfig();
+        config.setReadOnly(true);
+        return DriverManager.getConnection("jdbc:sqlite:"+path, config.toProperties());
+    }
+
+    private static void readIndividuals(Connection conn, Map<String, Individual> mapRefnIndividual) throws SQLException, IOException {
         try (
             val stmt = conn.prepareStatement(sql("individual"));
             val rs = stmt.executeQuery();
@@ -98,7 +117,7 @@ public final class FtmCullGedcom {
         }
     }
 
-    private static void readFamilyParents(Connection conn, HashMap<String, Individual> mapRefnIndividual, HashMap<Integer, Family> mapDbpkFamily, ArrayList<Family> rFamily) throws SQLException, IOException {
+    private static void readFamilyParents(Connection conn, Map<String, Individual> mapRefnIndividual, Map<Integer, Family> mapDbpkFamily, List<Family> rFamily) throws SQLException, IOException {
         try (
             val stmt = conn.prepareStatement(sql("relationship"));
             val rs = stmt.executeQuery();
@@ -116,7 +135,7 @@ public final class FtmCullGedcom {
         }
     }
 
-    private static void readFamilyChildren(Connection conn, HashMap<String, Individual> mapRefnIndividual, HashMap<Integer, Family> mapDbpkFamily) throws SQLException, IOException {
+    private static void readFamilyChildren(Connection conn, Map<String, Individual> mapRefnIndividual, Map<Integer, Family> mapDbpkFamily) throws SQLException, IOException {
         try (
             val stmt = conn.prepareStatement(sql("child"));
             val rs = stmt.executeQuery();
@@ -136,14 +155,14 @@ public final class FtmCullGedcom {
     }
 
 
-    private static void deduplicateFamilies(ArrayList<Family> rFamily) {
+    private static void deduplicateFamilies(List<Family> rFamily) {
         // TODO
     }
 
 
 
 
-    private static void writeGedcom(HashMap<String, Individual> mapRefnIndividual, ArrayList<Family> rFamily) throws IOException {
+    private static void writeGedcom(Map<String, Individual> mapRefnIndividual, List<Family> rFamily) throws IOException {
         final GedcomTree tree = new GedcomTree();
 
         final TreeNode<GedcomLine> head = new TreeNode<>(GedcomLine.createHeader());

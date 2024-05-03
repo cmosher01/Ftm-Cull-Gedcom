@@ -40,6 +40,17 @@ public class Family {
         this.children.add(child);
     }
 
+    public boolean isEmpty() {
+        int c = this.children.size();
+        if (this.husband.isPresent()) {
+            ++c;
+        }
+        if (this.wife.isPresent()) {
+            ++c;
+        }
+        return c < 2;
+    }
+
     // cheat a little on checking if two families are the same:
     // just check references, regarless of wife/husb/child
     public boolean hasSameMembers(final Family that) {

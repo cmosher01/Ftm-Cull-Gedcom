@@ -15,7 +15,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 import static java.nio.file.StandardOpenOption.*;
-import static nu.mine.mosher.logging.Jul.log;
 
 @Slf4j
 public final class FtmCullGedcom {
@@ -174,7 +173,7 @@ public final class FtmCullGedcom {
             tree.getRoot().addChild(ndIndi);
 
             ndIndi.addChild(new TreeNode<>(lnIndi.createChild(GedcomTag.REFN, indi.refn)));
-            ndIndi.addChild(new TreeNode<>(lnIndi.createChild(GedcomTag.SEX, gedsex(indi.sex))));
+            ndIndi.addChild(new TreeNode<>(lnIndi.createChild(GedcomTag.SEX, indi.sex.ged())));
             ndIndi.addChild(new TreeNode<>(lnIndi.createChild(GedcomTag.NAME, indi.gedname)));
 
             if (indi.yearBirth != 0 || !indi.placeBirth.description().isBlank()) {
@@ -228,14 +227,6 @@ public final class FtmCullGedcom {
         try (final BufferedOutputStream out = new BufferedOutputStream(Files.newOutputStream(Paths.get(ts()+".ged"), WRITE, CREATE_NEW))) {
             Gedcom.writeFile(tree, out);
         }
-    }
-
-    private static String gedsex(final Sex sex) {
-        return switch (sex) {
-            case MALE -> "M";
-            case FEMALE -> "F";
-            case UNKNOWN -> "U";
-        };
     }
 
     private static final Instant NOW = Instant.now();

@@ -66,6 +66,10 @@ public class Place {
         return new Place(new ArrayList<>(), "", /*Optional.empty(),*/ false, 0);
     }
 
+    public String description() {
+        return Optional.ofNullable(this.description).orElse("");
+    }
+
 //    public boolean isBlank() {
 //        return !this.ditto && /*this.sDisplay.isBlank() &&*/ safe(this.description).isBlank();
 //    }

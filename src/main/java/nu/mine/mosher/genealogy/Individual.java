@@ -6,17 +6,19 @@ import java.sql.*;
 import java.util.*;
 
 public final class Individual {
-    private final int dbpkPerson;
-    private final String refn;
-    private final Sex sex;
-    private final String gedname;
-    private final int yearBirth;
-    private final Place placeBirth;
-    private final int yearDeath;
-    private final Place placeDeath;
+    private static final GedcomUidGenerator idgen = new GedcomUidGenerator();
+
+    final String gedid;
+    final String refn;
+    final Sex sex;
+    final String gedname;
+    final int yearBirth;
+    final Place placeBirth;
+    final int yearDeath;
+    final Place placeDeath;
 
     public Individual(final ResultSet rs) throws SQLException {
-        this.dbpkPerson = rs.getInt("dbpkPerson");
+        this.gedid = idgen.generateId();
         this.refn = refnOrElseGuid(rs);
         this.sex = Sex.valueOf(rs.getString("sex"));
         this.gedname = rs.getString("gedname");
@@ -37,7 +39,7 @@ public final class Individual {
     @Override
     public String toString() {
         return "Individual{" +
-            "dbpkPerson=" + dbpkPerson +
+            "gedid='" + gedid + '\'' +
             ", refn='" + refn + '\'' +
             ", sex=" + sex +
             ", gedname='" + gedname + '\'' +

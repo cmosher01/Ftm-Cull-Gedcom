@@ -43,14 +43,7 @@ public class Family {
     }
 
     public boolean isEmpty() {
-        var c = this.children.size();
-        if (this.husband.isPresent()) {
-            ++c;
-        }
-        if (this.wife.isPresent()) {
-            ++c;
-        }
-        return c < 2;
+        return this.husband.isEmpty() && this.wife.isEmpty() && this.children.size() == 0;
     }
 
     // cheat a little on checking if two families are the same:

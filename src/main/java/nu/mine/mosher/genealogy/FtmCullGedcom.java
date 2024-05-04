@@ -2,31 +2,18 @@ package nu.mine.mosher.genealogy;
 
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
-import nu.mine.mosher.collection.TreeNode;
-import nu.mine.mosher.gedcom.*;
 import nu.mine.mosher.gnopt.Gnopt;
-import org.sqlite.SQLiteConfig;
 
 import java.io.*;
-import java.nio.charset.*;
 import java.nio.file.*;
 import java.sql.*;
-import java.time.*;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
-
-import static java.nio.file.StandardOpenOption.*;
 
 @Slf4j
 public final class FtmCullGedcom {
-    private static final Instant TIMESTAMP = Instant.now();
-    private static final String timestamp =
-        DateTimeFormatter.
-        ofPattern("yyyyMMdd'T'HHmmssSSSX").
-        withZone(ZoneOffset.UTC).
-        format(TIMESTAMP);
-
-
+    private FtmCullGedcom() {
+        throw new UnsupportedOperationException();
+    }
 
     @SneakyThrows
     public static void main(final String... args) {
@@ -35,36 +22,22 @@ public final class FtmCullGedcom {
 
         if (opts.help) {
             System.out.println("Usage: ftm-cull-gedcom input.ftm [...]");
-            if (!opts.pathIns.isEmpty()) {
-                log.info("paths specified:");
-                for (var pathIn : opts.pathIns) {
-                    String msg;
-                    try {
-                        pathIn = pathIn.toRealPath();
-                        msg = "found: "+pathIn;
-                    } catch (final Exception e) {
-                        msg = e.toString();
-                    }
-                    log.info("    {}", msg);
-                }
-            }
+            logPaths(opts.pathIns);
         } else {
             if (opts.pathIns.isEmpty()) {
                 log.warn("No input files specified. Use --help for usage information.");
             } else {
+                logPaths(opts.pathIns);
                 val pathsInReal = new ArrayList<Path>();
                 for (val pathIn : opts.pathIns) {
-                    pathsInReal.add(pathIn.toRealPath());
-                }
-                log.info("Will cull from these files:");
-                for (val pathIn : pathsInReal) {
-                    log.info("    "+pathIn);
+                    pathsInReal.add(pathIn.toRealPath()); // throws
                 }
 
-                val pathOut = Path.of(timestamp+".ged");
-                log.info("Will cull to output file: "+pathOut);
+                val pathOut = Path.of(Util.timestamp+".ged").toAbsolutePath().normalize();
+                log.info("Will cull to output file:");
+                log.info("    {}", pathOut);
 
-                cull(opts.pathIns, pathOut);
+                cull(pathsInReal, pathOut);
             }
         }
 
@@ -72,55 +45,41 @@ public final class FtmCullGedcom {
         System.err.flush();
     }
 
+    private static void logPaths(final List<Path> pathIns) {
+        if (!pathIns.isEmpty()) {
+            log.info("Will cull from these files:");
+            for (var pathIn : pathIns) {
+                String msg;
+                try {
+                    pathIn = pathIn.toRealPath();
+                    msg = "found: "+pathIn;
+                } catch (final Exception e) {
+                    msg = e.toString();
+                }
+                log.info("    {}", msg);
+            }
+        }
+    }
+
     private static void cull(final Collection<Path> pathIns, final Path pathOut) throws SQLException, IOException {
         val mapRefnIndividual = new HashMap<String, Individual>();
         val rFamily = new ArrayList<Family>();
         for (val pathIn : pathIns) {
-            val mapDbpkFamily = new HashMap<Integer, Family>();
-            try (val conn = conn(pathIn)) {
+            try (val conn = Util.conn(pathIn)) {
                 readIndividuals(conn, mapRefnIndividual);
-                readFamilyParents(conn, mapRefnIndividual, mapDbpkFamily, rFamily);
-                readFamilyChildren(conn, mapRefnIndividual, mapDbpkFamily);
+                readFamilies(conn, mapRefnIndividual, rFamily);
             }
             removeEmptyFamilies(rFamily);
         }
         deduplicateFamilies(rFamily);
         warnFamilyWithSameParents(rFamily);
         addFamcFamsPointers(rFamily);
-        writeGedcom(mapRefnIndividual, rFamily, pathOut);
-    }
-
-    private static void warnFamilyWithSameParents(final List<Family> rFamily) {
-        for (int i = 0; i < rFamily.size(); ++i) {
-            for (int j = i + 1; j < rFamily.size(); ++j) {
-                val a = rFamily.get(i);
-                val b = rFamily.get(j);
-                if (a.hasSameParents(b)) {
-                    log.warn("Two families have same parents: {}", a.display());
-                    log.warn("Two families have same parents: {}", b.display());
-                }
-            }
-        }
-    }
-
-    private static void addFamcFamsPointers(final List<Family> rFamily) {
-        rFamily.forEach(Family::addFamxPointers);
-    }
-
-    private static void removeEmptyFamilies(final List<Family> rFamily) {
-        val rEmpty = rFamily.stream().filter(Family::isEmpty).toList();
-        rFamily.removeAll(rEmpty);
-    }
-
-    private static Connection conn(final Path path) throws SQLException {
-        val config = new SQLiteConfig();
-        config.setReadOnly(true);
-        return DriverManager.getConnection("jdbc:sqlite:"+path, config.toProperties());
+        new CullGedcom().writeGedcom(mapRefnIndividual, rFamily, pathOut);
     }
 
     private static void readIndividuals(final Connection conn, final Map<String, Individual> mapRefnIndividual) throws SQLException, IOException {
         try (
-            val stmt = conn.prepareStatement(sql("individual"));
+            val stmt = conn.prepareStatement(Util.sql("individual"));
             val rs = stmt.executeQuery();
         ) {
             while (rs.next()) {
@@ -136,43 +95,48 @@ public final class FtmCullGedcom {
         }
     }
 
+    private static void readFamilies(final Connection conn, final Map<String, Individual> mapRefnIndividual, final List<Family> rFamily) throws SQLException, IOException {
+        val mapDbpkFamily = new HashMap<Integer, Family>();
+        readFamilyParents(conn, mapRefnIndividual, mapDbpkFamily, rFamily);
+        readFamilyChildren(conn, mapRefnIndividual, mapDbpkFamily);
+    }
+
     private static void readFamilyParents(final Connection conn, final Map<String, Individual> mapRefnIndividual, final Map<Integer, Family> mapDbpkFamily, final List<Family> rFamily) throws SQLException, IOException {
         try (
-            val stmt = conn.prepareStatement(sql("relationship"));
+            val stmt = conn.prepareStatement(Util.sql("relationship"));
             val rs = stmt.executeQuery();
         ) {
             while (rs.next()) {
-                val refn1 = rs.getString("refn1");
-                val indi1 = Optional.ofNullable(mapRefnIndividual.get(refn1));
-                val refn2 = rs.getString("refn2");
-                val indi2 = Optional.ofNullable(mapRefnIndividual.get(refn2));
+                val indi1 = Optional.ofNullable(mapRefnIndividual.get(rs.getString("refn1")));
+                val indi2 = Optional.ofNullable(mapRefnIndividual.get(rs.getString("refn2")));
                 val fami = new Family(indi1, indi2);
                 rFamily.add(fami);
-                val dbpkRelationship = rs.getInt("dbpkRelationship");
-                mapDbpkFamily.put(dbpkRelationship, fami);
+                mapDbpkFamily.put(rs.getInt("dbpkRelationship"), fami);
             }
         }
     }
 
     private static void readFamilyChildren(final Connection conn, final Map<String, Individual> mapRefnIndividual, final Map<Integer, Family> mapDbpkFamily) throws SQLException, IOException {
         try (
-            val stmt = conn.prepareStatement(sql("child"));
+            val stmt = conn.prepareStatement(Util.sql("child"));
             val rs = stmt.executeQuery();
         ) {
             while (rs.next()) {
-                val dbfkFamily = rs.getInt("dbfkFamily");
-                val fami = mapDbpkFamily.get(dbfkFamily);
-                val refn = rs.getString("refn");
-                val indi = Optional.ofNullable(mapRefnIndividual.get(refn));
+                val fami = mapDbpkFamily.get(rs.getInt("dbfkFamily"));
+                val indi = Optional.ofNullable(mapRefnIndividual.get(rs.getString("refn")));
                 if (indi.isPresent()) {
                     fami.addChild(indi.get());
                 } else {
-                    log.error("Invalid REFN: {}", refn);
+                    log.error("Invalid REFN: {}", rs.getString("refn"));
                 }
             }
         }
     }
 
+    private static void removeEmptyFamilies(final List<Family> rFamily) {
+        val rEmpty = rFamily.stream().filter(Family::isEmpty).toList();
+        rFamily.removeAll(rEmpty);
+    }
 
     private static void deduplicateFamilies(final List<Family> rFamily) {
         val dups = new TreeSet<Integer>();
@@ -190,120 +154,26 @@ public final class FtmCullGedcom {
 
         val backwards = dups.descendingIterator();
         while (backwards.hasNext()) {
-            val x = backwards.next().intValue();
+            final int x = backwards.next();
             log.info("removing family at index: {}", x);
             rFamily.remove(x);
         }
     }
 
-
-
-
-    private static void writeGedcom(final Map<String, Individual> mapRefnIndividual, final List<Family> rFamily, final Path pathOut) throws IOException {
-        final GedcomTree tree = new GedcomTree();
-
-        final TreeNode<GedcomLine> head = new TreeNode<>(GedcomLine.createHeader());
-        tree.getRoot().addChild(head);
-
-        head.addChild(new TreeNode<>(GedcomLine.createEmpty(1, GedcomTag.CHAR)));
-        tree.setCharset(StandardCharsets.UTF_8);
-
-        final TreeNode<GedcomLine> gedc = new TreeNode<>(GedcomLine.createEmpty(1, GedcomTag.GEDC));
-        head.addChild(gedc);
-        gedc.addChild(new TreeNode<>(GedcomLine.create(2, GedcomTag.VERS, "5.5.1")));
-        gedc.addChild(new TreeNode<>(GedcomLine.create(2, GedcomTag.FORM, "LINEAGE-LINKED")));
-
-        head.addChild(new TreeNode<>(GedcomLine.create(1, GedcomTag.SOUR, "github.com/cmosher01/ftm-cull-gedcom")));
-        head.addChild(new TreeNode<>(GedcomLine.createPointer(1, GedcomTag.SUBM, "M0")));
-
-        final TreeNode<GedcomLine> subm = new TreeNode<>(GedcomLine.createEmptyId("M0", GedcomTag.SUBM));
-        tree.getRoot().addChild(subm);
-
-        subm.addChild(new TreeNode<>(GedcomLine.create(1, GedcomTag.NAME, System.getProperty("user.name"))));
-
-
-
-        for (val indi : mapRefnIndividual.values()) {
-            val lnIndi = GedcomLine.createEmptyId(indi.gedid, GedcomTag.INDI);
-            val ndIndi = new TreeNode<>(lnIndi);
-            tree.getRoot().addChild(ndIndi);
-
-            ndIndi.addChild(new TreeNode<>(lnIndi.createChild(GedcomTag.REFN, indi.refn)));
-            ndIndi.addChild(new TreeNode<>(lnIndi.createChild(GedcomTag.SEX, indi.sex.ged())));
-            ndIndi.addChild(new TreeNode<>(lnIndi.createChild(GedcomTag.NAME, indi.gedname)));
-
-            if (indi.yearBirth != 0 || !indi.placeBirth.description().isBlank()) {
-                val lnBirth = lnIndi.createChild(GedcomTag.BIRT, "");
-                val ndBirth = new TreeNode<>(lnBirth);
-                ndIndi.addChild(ndBirth);
-                if (indi.yearBirth != 0) {
-                    ndBirth.addChild(new TreeNode<>(lnBirth.createChild(GedcomTag.DATE, "" + indi.yearBirth)));
-                }
-                if (!indi.placeBirth.description().isBlank()) {
-                    ndBirth.addChild(new TreeNode<>(lnBirth.createChild(GedcomTag.PLAC, indi.placeBirth.description())));
+    private static void warnFamilyWithSameParents(final List<Family> rFamily) {
+        for (int i = 0; i < rFamily.size(); ++i) {
+            for (int j = i + 1; j < rFamily.size(); ++j) {
+                val a = rFamily.get(i);
+                val b = rFamily.get(j);
+                if (a.hasSameParents(b)) {
+                    log.warn("Two families have same parents: {}", a.display());
+                    log.warn("Two families have same parents: {}", b.display());
                 }
             }
-
-            if (indi.yearDeath != 0 || !indi.placeDeath.description().isBlank()) {
-                val lnDeath = lnIndi.createChild(GedcomTag.DEAT, "");
-                val ndDeath = new TreeNode<>(lnDeath);
-                ndIndi.addChild(ndDeath);
-                if (indi.yearDeath != 0) {
-                    ndDeath.addChild(new TreeNode<>(lnDeath.createChild(GedcomTag.DATE, "" + indi.yearDeath)));
-                }
-                if (!indi.placeDeath.description().isBlank()) {
-                    ndDeath.addChild(new TreeNode<>(lnDeath.createChild(GedcomTag.PLAC, indi.placeDeath.description())));
-                }
-            }
-
-            for (val fam : indi.rFamc) {
-                ndIndi.addChild(new TreeNode<>(lnIndi.createChild(GedcomTag.FAMC, "").replacePointer(fam.gedid)));
-            }
-            for (val fam : indi.rFams) {
-                ndIndi.addChild(new TreeNode<>(lnIndi.createChild(GedcomTag.FAMS, "").replacePointer(fam.gedid)));
-            }
-        }
-
-
-
-        for (val fami : rFamily) {
-            val lnFami = GedcomLine.createEmptyId(fami.gedid, GedcomTag.FAM);
-            val ndFami = new TreeNode<>(lnFami);
-            tree.getRoot().addChild(ndFami);
-
-            if (fami.husband.isPresent()) {
-                ndFami.addChild(new TreeNode<>(lnFami.createChild(GedcomTag.HUSB, "").replacePointer(fami.husband.get().gedid)));
-            }
-            if (fami.wife.isPresent()) {
-                ndFami.addChild(new TreeNode<>(lnFami.createChild(GedcomTag.WIFE, "").replacePointer(fami.wife.get().gedid)));
-            }
-            for (val child : fami.children) {
-                ndFami.addChild(new TreeNode<>(lnFami.createChild(GedcomTag.CHIL, "").replacePointer(child.gedid)));
-            }
-        }
-
-
-
-        tree.getRoot().addChild(new TreeNode<>(GedcomLine.createTrailer()));
-
-        try (final BufferedOutputStream out = new BufferedOutputStream(Files.newOutputStream(pathOut, WRITE, CREATE_NEW))) {
-            Gedcom.writeFile(tree, out);
         }
     }
 
-    private static final Instant NOW = Instant.now();
-    private static String ts() {
-        val fmt = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmssSSSX").withZone(ZoneOffset.UTC);
-        return fmt.format(NOW);
-    }
-
-    private static String sql(final String name) throws IOException {
-        try (val in = FtmCullGedcom.class.getResourceAsStream(name+".sql")) {
-            return new String(in.readAllBytes(), StandardCharsets.US_ASCII);
-        }
-    }
-
-    private FtmCullGedcom() {
-        throw new UnsupportedOperationException();
+    private static void addFamcFamsPointers(final List<Family> rFamily) {
+        rFamily.forEach(Family::addFamxPointers);
     }
 }

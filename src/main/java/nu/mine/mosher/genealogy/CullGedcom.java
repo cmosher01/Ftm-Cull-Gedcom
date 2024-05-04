@@ -13,22 +13,32 @@ import java.util.*;
 import static java.nio.file.StandardOpenOption.*;
 
 @Slf4j
-@RequiredArgsConstructor
 public class CullGedcom {
     private final GedcomTree tree = new GedcomTree();
+    private final Map<String, Individual> mapRefnIndividual;
+    private final List<Family> rFamily;
 
-    public void writeGedcom(final Map<String, Individual> mapRefnIndividual, final List<Family> rFamily, final Path pathOut) throws IOException {
-        writeHeader();
-        writeIndividuals(mapRefnIndividual);
-        writeFamilies(rFamily);
-        writeTrailer();
+    public CullGedcom(final Map<String, Individual> mapRefnIndividual, final List<Family> rFamily) {
+        this.mapRefnIndividual = Map.copyOf(mapRefnIndividual);
+        this.rFamily = List.copyOf(rFamily);
+    }
 
-        try (final BufferedOutputStream out = new BufferedOutputStream(Files.newOutputStream(pathOut, WRITE, CREATE_NEW))) {
+    public void write(final Path pathOut) throws IOException {
+        buildHeader();
+        buildwriteIndividuals();
+        buildwriteFamilies();
+        buildTrailer();
+
+        writeGedcom(pathOut);
+    }
+
+    private void writeGedcom(final Path pathOut) throws IOException {
+        try (val out = new BufferedOutputStream(Files.newOutputStream(pathOut, WRITE, CREATE_NEW))) {
             Gedcom.writeFile(this.tree, out);
         }
     }
 
-    private void writeHeader() {
+    private void buildHeader() {
         val head = new TreeNode<>(GedcomLine.createHeader());
         this.tree.getRoot().addChild(head);
 
@@ -49,8 +59,8 @@ public class CullGedcom {
         subm.addChild(new TreeNode<>(GedcomLine.create(1, GedcomTag.NAME, System.getProperty("user.name"))));
     }
 
-    private void writeIndividuals(Map<String, Individual> mapRefnIndividual) {
-        for (val indi : mapRefnIndividual.values()) {
+    private void buildwriteIndividuals() {
+        for (val indi : this.mapRefnIndividual.values()) {
             val lnIndi = GedcomLine.createEmptyId(indi.gedid, GedcomTag.INDI);
             val ndIndi = new TreeNode<>(lnIndi);
             this.tree.getRoot().addChild(ndIndi);
@@ -92,8 +102,8 @@ public class CullGedcom {
         }
     }
 
-    private void writeFamilies(List<Family> rFamily) {
-        for (val fami : rFamily) {
+    private void buildwriteFamilies() {
+        for (val fami : this.rFamily) {
             val lnFami = GedcomLine.createEmptyId(fami.gedid, GedcomTag.FAM);
             val ndFami = new TreeNode<>(lnFami);
             this.tree.getRoot().addChild(ndFami);
@@ -110,7 +120,7 @@ public class CullGedcom {
         }
     }
 
-    private void writeTrailer() {
+    private void buildTrailer() {
         this.tree.getRoot().addChild(new TreeNode<>(GedcomLine.createTrailer()));
     }
 }

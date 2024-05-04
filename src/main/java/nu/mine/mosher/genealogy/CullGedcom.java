@@ -13,15 +13,11 @@ import java.util.*;
 import static java.nio.file.StandardOpenOption.*;
 
 @Slf4j
+@RequiredArgsConstructor
 public class CullGedcom {
     private final GedcomTree tree = new GedcomTree();
-    private final Map<String, Individual> mapRefnIndividual;
-    private final List<Family> rFamily;
-
-    public CullGedcom(final Map<String, Individual> mapRefnIndividual, final List<Family> rFamily) {
-        this.mapRefnIndividual = Map.copyOf(mapRefnIndividual);
-        this.rFamily = List.copyOf(rFamily);
-    }
+    private final Collection<Individual> indis;
+    private final Collection<Family> fams;
 
     public void write(final Path pathOut) throws IOException {
         buildHeader();
@@ -60,7 +56,7 @@ public class CullGedcom {
     }
 
     private void buildwriteIndividuals() {
-        for (val indi : this.mapRefnIndividual.values()) {
+        for (val indi : this.indis) {
             val lnIndi = GedcomLine.createEmptyId(indi.gedid, GedcomTag.INDI);
             val ndIndi = new TreeNode<>(lnIndi);
             this.tree.getRoot().addChild(ndIndi);
@@ -103,7 +99,7 @@ public class CullGedcom {
     }
 
     private void buildwriteFamilies() {
-        for (val fami : this.rFamily) {
+        for (val fami : this.fams) {
             val lnFami = GedcomLine.createEmptyId(fami.gedid, GedcomTag.FAM);
             val ndFami = new TreeNode<>(lnFami);
             this.tree.getRoot().addChild(ndFami);

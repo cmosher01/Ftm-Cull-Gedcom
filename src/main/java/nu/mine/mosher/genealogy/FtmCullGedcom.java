@@ -55,9 +55,13 @@ public final class FtmCullGedcom {
     }
 
     private static void cull(final List<Path> pathIns, final Path pathOut) throws IOException, SQLException {
-        val input = new FtmCull();
+        val indis = new IndividualsManager();
+        val fams = new FamiliesManager();
+
+        val input = new FtmCull(indis, fams);
         input.read(pathIns);
-        val output = new CullGedcom(input.mapRefnIndividual(), input.families());
+
+        val output = new CullGedcom(indis.all(), fams.all());
         output.write(pathOut);
     }
 }

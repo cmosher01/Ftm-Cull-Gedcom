@@ -1,10 +1,12 @@
 package nu.mine.mosher.genealogy;
 
+import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
 import java.sql.*;
 import java.util.*;
 
+@Slf4j
 public final class Individual {
     private static final GedcomUidGenerator idgen = new GedcomUidGenerator();
 
@@ -16,6 +18,8 @@ public final class Individual {
     final Place placeBirth;
     final int yearDeath;
     final Place placeDeath;
+    final List<Family> rFams = new ArrayList<>();
+    final List<Family> rFamc = new ArrayList<>();
 
     public Individual(final ResultSet rs) throws SQLException {
         this.gedid = idgen.generateId();
@@ -55,5 +59,19 @@ public final class Individual {
         return
             object instanceof Individual that &&
             this.refn.equals(that.refn);
+    }
+
+    public void addFams(final Family family) {
+        if (this.rFams.contains(family)) {
+            log.warn("Adding same family multiple times as spouse of: {}", this.refn);
+        }
+        this.rFams.add(family);
+    }
+
+    public void addFamc(final Family family) {
+        if (this.rFamc.contains(family)) {
+            log.warn("Adding same family multiple times as child of: {}", this.refn);
+        }
+        this.rFamc.add(family);
     }
 }

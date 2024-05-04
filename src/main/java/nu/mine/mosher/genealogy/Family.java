@@ -1,5 +1,7 @@
 package nu.mine.mosher.genealogy;
 
+import lombok.val;
+
 import java.util.*;
 
 public class Family {
@@ -41,7 +43,7 @@ public class Family {
     }
 
     public boolean isEmpty() {
-        int c = this.children.size();
+        var c = this.children.size();
         if (this.husband.isPresent()) {
             ++c;
         }
@@ -57,8 +59,16 @@ public class Family {
         return this.all().equals(that.all());
     }
 
+    public boolean hasSameParents(final Family that) {
+        return
+            this.husband.isPresent() && that.husband.isPresent() &&
+            this.husband.equals(that.husband) &&
+            this.wife.isPresent() && that.wife.isPresent() &&
+            this.wife.equals(that.wife);
+    }
+
     private Set<Individual> all() {
-        final Set<Individual> s = new HashSet<>(this.children);
+        val s = new HashSet<>(this.children);
         if (this.husband.isPresent()) {
             s.add(this.husband.get());
         }
@@ -66,5 +76,27 @@ public class Family {
             s.add(this.wife.get());
         }
         return Set.copyOf(s);
+    }
+
+    public String display() {
+        val sb = new StringBuilder();
+        for (val i : all()) {
+            sb.append(i.refn);
+            sb.append(',');
+        }
+        sb.delete(sb.length()-1, sb.length());
+        return sb.toString();
+    }
+
+    public void addFamxPointers() {
+        if (this.husband.isPresent()) {
+            this.husband.get().addFams(this);
+        }
+        if (this.wife.isPresent()) {
+            this.wife.get().addFams(this);
+        }
+        for (val i : this.children) {
+            i.addFamc(this);
+        }
     }
 }

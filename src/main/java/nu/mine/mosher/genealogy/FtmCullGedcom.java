@@ -85,12 +85,26 @@ public final class FtmCullGedcom {
             removeEmptyFamilies(rFamily);
         }
         deduplicateFamilies(rFamily);
-        addFamcFamsPointers(rFamily, mapRefnIndividual);
+        warnFamilyWithSameParents(rFamily);
+        addFamcFamsPointers(rFamily);
         writeGedcom(mapRefnIndividual, rFamily, pathOut);
     }
 
-    private static void addFamcFamsPointers(final List<Family> rFamily, final Map<String, Individual> mapRefnIndividual) {
-        // TODO
+    private static void warnFamilyWithSameParents(final List<Family> rFamily) {
+        for (int i = 0; i < rFamily.size(); ++i) {
+            for (int j = i + 1; j < rFamily.size(); ++j) {
+                val a = rFamily.get(i);
+                val b = rFamily.get(j);
+                if (a.hasSameParents(b)) {
+                    log.warn("Two families have same parents: {}", a.display());
+                    log.warn("Two families have same parents: {}", b.display());
+                }
+            }
+        }
+    }
+
+    private static void addFamcFamsPointers(final List<Family> rFamily) {
+        rFamily.forEach(Family::addFamxPointers);
     }
 
     private static void removeEmptyFamilies(final List<Family> rFamily) {
@@ -161,7 +175,25 @@ public final class FtmCullGedcom {
 
 
     private static void deduplicateFamilies(final List<Family> rFamily) {
-        // TODO
+        val dups = new TreeSet<Integer>();
+
+        for (int i = 0; i < rFamily.size(); ++i) {
+            for (int j = i+1; j < rFamily.size(); ++j) {
+                val a = rFamily.get(i);
+                val b = rFamily.get(j);
+                if (a.hasSameMembers(b)) {
+                    log.info("Duplicate family: {}", a.display());
+                    dups.add(j);
+                }
+            }
+        }
+
+        val backwards = dups.descendingIterator();
+        while (backwards.hasNext()) {
+            val x = backwards.next().intValue();
+            log.info("removing family at index: {}", x);
+            rFamily.remove(x);
+        }
     }
 
 
@@ -222,6 +254,13 @@ public final class FtmCullGedcom {
                 if (!indi.placeDeath.description().isBlank()) {
                     ndDeath.addChild(new TreeNode<>(lnDeath.createChild(GedcomTag.PLAC, indi.placeDeath.description())));
                 }
+            }
+
+            for (val fam : indi.rFamc) {
+                ndIndi.addChild(new TreeNode<>(lnIndi.createChild(GedcomTag.FAMC, "").replacePointer(fam.gedid)));
+            }
+            for (val fam : indi.rFams) {
+                ndIndi.addChild(new TreeNode<>(lnIndi.createChild(GedcomTag.FAMS, "").replacePointer(fam.gedid)));
             }
         }
 

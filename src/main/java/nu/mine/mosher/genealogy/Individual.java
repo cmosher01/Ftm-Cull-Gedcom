@@ -20,8 +20,11 @@ public final class Individual {
     final Place placeDeath;
     final List<Family> rFams = new ArrayList<>();
     final List<Family> rFamc = new ArrayList<>();
+    final String tree;
 
-    public Individual(final ResultSet rs) throws SQLException {
+
+
+    public Individual(final ResultSet rs, final String tree) throws SQLException {
         this.gedid = idgen.generateId();
         this.refn = refnOrElseGuid(rs);
         this.sex = Sex.valueOf(rs.getString("sex"));
@@ -30,14 +33,13 @@ public final class Individual {
         this.placeBirth = Place.fromFtmPlace(rs.getString("placeBirth"));
         this.yearDeath = rs.getInt("yearDeath");
         this.placeDeath = Place.fromFtmPlace(rs.getString("placeDeath"));
+        this.tree = tree;
     }
 
-    private static String refnOrElseGuid(final ResultSet rs) throws SQLException {
-        val refn = rs.getString("refn");
-        if (Objects.nonNull(refn) && !refn.isBlank()) {
-            return refn;
-        }
-        return rs.getString("guidPerson");
+
+
+    public String display() {
+        return "{"+this.refn+"}["+tree+"] "+this.gedname;
     }
 
     @Override
@@ -73,5 +75,15 @@ public final class Individual {
             log.warn("Adding same family multiple times as child of: {}", this.refn);
         }
         this.rFamc.add(family);
+    }
+
+
+
+    private static String refnOrElseGuid(final ResultSet rs) throws SQLException {
+        val refn = rs.getString("refn");
+        if (Objects.nonNull(refn) && !refn.isBlank()) {
+            return refn;
+        }
+        return rs.getString("guidPerson");
     }
 }

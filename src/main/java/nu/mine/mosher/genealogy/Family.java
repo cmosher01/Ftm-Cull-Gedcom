@@ -11,8 +11,9 @@ public class Family {
     final Optional<Individual> husband;
     final Optional<Individual> wife;
     final List<Individual> children = new ArrayList<>();
+    final String tree;
 
-    public Family(final Optional<Individual> indi1, final Optional<Individual> indi2) {
+    public Family(final Optional<Individual> indi1, final Optional<Individual> indi2, final String tree) {
         this.gedid = idgen.generateId();
         /*
          *  1\2  M        F        U        empty
@@ -28,6 +29,7 @@ public class Family {
             this.husband = indi1;
             this.wife = indi2;
         }
+        this.tree = tree;
     }
 
     private static boolean f(final Optional<Individual> i) {
@@ -73,11 +75,13 @@ public class Family {
 
     public String display() {
         val sb = new StringBuilder();
+        sb.append(this.tree);
+        sb.append(": ");
         for (val i : all()) {
-            sb.append(i.refn);
-            sb.append(',');
+            sb.append(i.display());
+            sb.append(" , ");
         }
-        sb.delete(sb.length()-1, sb.length());
+        sb.delete(sb.length()-3, sb.length());
         return sb.toString();
     }
 

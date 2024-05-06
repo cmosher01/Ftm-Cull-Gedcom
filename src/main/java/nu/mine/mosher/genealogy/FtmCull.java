@@ -16,9 +16,10 @@ public class FtmCull {
 
     public void read(final List<Path> pathIns) throws SQLException, IOException {
         for (val pathIn : pathIns) {
+            val tree = pathIn.getFileName().toString();
             try (val conn = Util.conn(pathIn)) {
-                this.indis.read(conn);
-                this.fams.read(conn, this.indis);
+                this.indis.read(conn, tree);
+                this.fams.read(conn, this.indis, tree);
             }
         }
         this.fams.postProcess();

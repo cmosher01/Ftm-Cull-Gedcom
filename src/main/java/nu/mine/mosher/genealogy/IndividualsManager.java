@@ -11,17 +11,17 @@ import java.util.*;
 public class IndividualsManager {
     private final Map<String, Individual> mapRefnIndividual = new HashMap<>();
 
-    public void read(final Connection conn) throws SQLException, IOException {
+    public void read(final Connection conn, final String nameTree) throws SQLException, IOException {
         try (
                 val stmt = conn.prepareStatement(Util.sql("individual"));
                 val rs = stmt.executeQuery()
         ) {
             while (rs.next()) {
-                val indi = new Individual(rs);
+                val indi = new Individual(rs, nameTree);
                 log.debug("{}", indi);
 
                 if (this.mapRefnIndividual.containsKey(indi.refn)) {
-                    log.info("Duplicate individual: {}", indi.refn);
+                    log.info("Duplicate individual: {}", indi.display());
                 } else {
                     this.mapRefnIndividual.put(indi.refn, indi);
                 }

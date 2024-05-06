@@ -11,9 +11,9 @@ import java.util.*;
 public class FamiliesManager {
     private final List<Family> rFamily = new ArrayList<>();
 
-    public void read(final Connection conn, final IndividualsManager indis) throws SQLException, IOException {
+    public void read(final Connection conn, final IndividualsManager indis, final String nameTree) throws SQLException, IOException {
         val mapDbpkFamily = new HashMap<Integer, Family>();
-        readFamilyParents(conn, indis, mapDbpkFamily);
+        readFamilyParents(conn, indis, mapDbpkFamily, nameTree);
         readFamilyChildren(conn, indis, mapDbpkFamily);
     }
 
@@ -30,7 +30,7 @@ public class FamiliesManager {
 
 
 
-    private void readFamilyParents(final Connection conn, final IndividualsManager indis, final Map<Integer, Family> mapDbpkFamily) throws SQLException, IOException {
+    private void readFamilyParents(final Connection conn, final IndividualsManager indis, final Map<Integer, Family> mapDbpkFamily, final String nameTree) throws SQLException, IOException {
         try (
                 val stmt = conn.prepareStatement(Util.sql("relationship"));
                 val rs = stmt.executeQuery()
@@ -38,7 +38,7 @@ public class FamiliesManager {
             while (rs.next()) {
                 val indi1 = indis.withRefn(rs.getString("refn1"));
                 val indi2 = indis.withRefn(rs.getString("refn2"));
-                val fami = new Family(indi1, indi2);
+                val fami = new Family(indi1, indi2, nameTree);
                 this.rFamily.add(fami);
                 mapDbpkFamily.put(rs.getInt("dbpkRelationship"), fami);
             }

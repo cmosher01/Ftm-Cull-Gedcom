@@ -20,11 +20,11 @@ public final class Individual {
     final Place placeDeath;
     final List<Family> rFams = new ArrayList<>();
     final List<Family> rFamc = new ArrayList<>();
-    final String tree;
+    final List<String> rTree = new ArrayList<>();
 
 
 
-    public Individual(final ResultSet rs, final String tree) throws SQLException {
+    public Individual(final ResultSet rs) throws SQLException {
         this.gedid = idgen.generateId();
         this.refn = refnOrElseGuid(rs);
         this.sex = Sex.valueOf(rs.getString("sex"));
@@ -33,13 +33,20 @@ public final class Individual {
         this.placeBirth = Place.fromFtmPlace(rs.getString("placeBirth"));
         this.yearDeath = rs.getInt("yearDeath");
         this.placeDeath = Place.fromFtmPlace(rs.getString("placeDeath"));
-        this.tree = tree;
     }
 
 
 
+    public void addTree(final String tree) {
+        this.rTree.add(tree);
+    }
+
     public String display() {
-        return "{"+this.refn+"}["+tree+"] "+this.gedname;
+        return "{"+this.refn+"}["+trees()+"] "+this.gedname;
+    }
+
+    public String trees() {
+        return String.join(",", this.rTree);
     }
 
     @Override

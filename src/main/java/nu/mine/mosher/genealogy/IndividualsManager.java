@@ -13,15 +13,18 @@ public class IndividualsManager {
 
     public void read(final Connection conn, final String nameTree) throws SQLException, IOException {
         try (
-                val stmt = conn.prepareStatement(Util.sql("individual"));
-                val rs = stmt.executeQuery()
+            val stmt = conn.prepareStatement(Util.sql("individual"));
+            val rs = stmt.executeQuery()
         ) {
             while (rs.next()) {
-                val indi = new Individual(rs, nameTree);
+                val indi = new Individual(rs);
+                indi.addTree(nameTree);
                 log.debug("{}", indi);
 
                 if (this.mapRefnIndividual.containsKey(indi.refn)) {
-                    log.info("Duplicate individual: {}", indi.display());
+                    val indi0 = this.mapRefnIndividual.get(indi.refn);
+                    indi0.addTree(nameTree);
+                    log.info("Duplicate individual: {}", indi0.display());
                 } else {
                     this.mapRefnIndividual.put(indi.refn, indi);
                 }

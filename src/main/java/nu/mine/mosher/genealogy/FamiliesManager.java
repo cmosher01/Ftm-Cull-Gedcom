@@ -32,8 +32,8 @@ public class FamiliesManager {
 
     private void readFamilyParents(final Connection conn, final IndividualsManager indis, final Map<Integer, Family> mapDbpkFamily, final String nameTree) throws SQLException, IOException {
         try (
-                val stmt = conn.prepareStatement(Util.sql("relationship"));
-                val rs = stmt.executeQuery()
+            val stmt = conn.prepareStatement(Util.sql("relationship"));
+            val rs = stmt.executeQuery()
         ) {
             while (rs.next()) {
                 val indi1 = indis.withRefn(rs.getString("refn1"));
@@ -47,8 +47,8 @@ public class FamiliesManager {
 
     private void readFamilyChildren(final Connection conn, final IndividualsManager indis, final Map<Integer, Family> mapDbpkFamily) throws SQLException, IOException {
         try (
-                val stmt = conn.prepareStatement(Util.sql("child"));
-                val rs = stmt.executeQuery()
+            val stmt = conn.prepareStatement(Util.sql("child"));
+            val rs = stmt.executeQuery()
         ) {
             while (rs.next()) {
                 val fami = mapDbpkFamily.get(rs.getInt("dbfkFamily"));
@@ -86,7 +86,7 @@ public class FamiliesManager {
         val backwards = dups.descendingIterator();
         while (backwards.hasNext()) {
             final int x = backwards.next();
-            log.info("removing family at index: {}", x);
+            log.info("removing family at index: {}: {}", x, this.rFamily.get(x).display());
             this.rFamily.remove(x);
         }
     }

@@ -22,6 +22,7 @@ public class FtmCull {
                 this.fams.read(conn, this.indis, tree);
             }
         }
+        this.indis.logDups();
         this.fams.postProcess();
     }
 }

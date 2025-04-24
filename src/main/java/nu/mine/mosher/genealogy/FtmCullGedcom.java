@@ -11,6 +11,7 @@ import java.util.*;
 
 @Slf4j
 public final class FtmCullGedcom {
+    @SuppressWarnings("unused")
     private FtmCullGedcom() {
         throw new UnsupportedOperationException();
     }
@@ -33,6 +34,8 @@ public final class FtmCullGedcom {
             log.info("    {}", pathOut);
 
             cull(pathsInReal, pathOut);
+
+            System.out.println(pathOut);
         }
 
         System.out.flush();

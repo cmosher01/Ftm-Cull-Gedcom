@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.sql.*;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 
 public class Util {
     private static final Instant TIMESTAMP = Instant.now();
@@ -26,7 +27,7 @@ public class Util {
 
     public static String sql(final String name) throws IOException {
         try (val in = FtmCullGedcom.class.getResourceAsStream(name+".sql")) {
-            return new String(in.readAllBytes(), StandardCharsets.US_ASCII);
+            return new String(Objects.requireNonNull(in).readAllBytes(), StandardCharsets.US_ASCII);
         }
     }
 

@@ -5,6 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.*;
 import java.util.*;
 
+@SuppressWarnings({
+    "OptionalUsedAsFieldOrParameterType",
+    "OptionalIsPresent",
+    "unused"
+})
 @Slf4j
 public final class FtmCullGedcomOptions {
     public boolean help = false;
